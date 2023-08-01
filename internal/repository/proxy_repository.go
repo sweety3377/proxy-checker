@@ -29,14 +29,10 @@ func New(ctx context.Context, cfg config.Proxy) *ProxiesStorage {
 }
 
 func (p *ProxiesStorage) StartChecker(proxiesList []string) {
-	//	p.wg.Add(len(proxiesList))
+	p.wg.Add(len(proxiesList))
 
 	var successfullyCount atomic.Uint64
-	for ind, proxyAddress := range proxiesList {
-		if ind == 10 {
-			break
-		}
-
+	for _, proxyAddress := range proxiesList {
 		p.wg.Add(1)
 
 		go func(proxyAddress string) {
@@ -52,8 +48,6 @@ func (p *ProxiesStorage) StartChecker(proxiesList []string) {
 				successfullyCount.Add(1)
 			}
 		}(proxyAddress)
-
-		time.Sleep(time.Millisecond * 10)
 	}
 
 	p.wg.Wait()

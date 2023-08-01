@@ -1,4 +1,5 @@
 /.idea
 /logs
 /test_data
+/data
 .env
