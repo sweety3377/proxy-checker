@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
+	"github.com/sweety3377/proxy-checker/internal/config"
+	pkgLogger "github.com/sweety3377/proxy-checker/pkg/logger"
 	"log"
-	"proxy-checker/internal/config"
-	pkgLogger "proxy-checker/pkg/logger"
 )
 
 func main() {

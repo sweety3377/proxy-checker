@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"github.com/rs/zerolog"
+	"github.com/sweety3377/proxy-checker/internal/config"
 	"io"
 	"net/http"
-	"proxy-checker/internal/config"
 	"strings"
 )
 
