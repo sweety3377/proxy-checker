@@ -20,9 +20,9 @@ func NewHttpClient(proxyURL *url.URL, timeout time.Duration) (*http.Client, erro
 	}
 
 	switch proxyURL.Scheme {
-	case "socks":
+	case "socks5":
 		tr.Dial = socks.Dial(proxyURL.String())
-	case "http", "https":
+	case "http":
 		tr.Proxy = http.ProxyURL(proxyURL)
 	default:
 		return nil, fmt.Errorf("undefined scheme: %s", proxyURL.Scheme)
