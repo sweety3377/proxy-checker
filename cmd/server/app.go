@@ -40,6 +40,8 @@ func runApp(ctx context.Context, cfg *config.Config) {
 		logger.Fatal().Err(err).Str("mode", cfg.Proxy.InputType).Msg("error initializing proxy")
 	}
 
+	proxiesList = proxiesList[0:200]
+
 	logger.Info().Int("len", len(proxiesList)).Msg("successfully loaded proxies list")
 
 	proxyRepository := proxy_repository.New(ctx, cfg.Proxy, cfg.Runtime.MaxThreads)
@@ -48,10 +50,12 @@ func runApp(ctx context.Context, cfg *config.Config) {
 	doneCh := make(chan struct{}, 1)
 	defer close(doneCh)
 
-	// Start check
+	// Start proxy checker
 	go func() {
+		// Get results
 		results := proxyService.StartChecker(proxiesList)
 
+		// Create results files
 		timestamp := strconv.Itoa(int(time.Now().Unix()))
 
 		fileName := filepath.Join("results", "results-"+timestamp+".csv")
@@ -59,7 +63,9 @@ func runApp(ctx context.Context, cfg *config.Config) {
 		if err != nil {
 			logger.Error().Err(err).Msg("error creating file for results")
 		}
+		defer file.Close()
 
+		// Save results
 		w := csv.NewWriter(file)
 
 		err = w.WriteAll(results)
@@ -70,10 +76,12 @@ func runApp(ctx context.Context, cfg *config.Config) {
 		doneCh <- struct{}{}
 	}()
 
+	// Wait checks done
+	// Or shutdown signal
 	for {
 		select {
 		case <-doneCh:
-			logger.Info().Msg("received message from dont channel")
+			logger.Info().Msg("received message from done channel")
 			shutdownCh <- os.Kill
 		case sig := <-shutdownCh:
 			logger.Info().Str("signal", sig.String()).Msg("received shutdown signal")

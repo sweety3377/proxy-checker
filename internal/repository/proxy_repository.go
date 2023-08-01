@@ -17,13 +17,24 @@ import (
 )
 
 type ProxiesStorage struct {
-	wg        *sync.WaitGroup
-	mx        *sync.Mutex
-	logger    *zerolog.Logger
+	wg *sync.WaitGroup
+	mx *sync.Mutex
+
+	// Console logger
+	logger *zerolog.Logger
+
+	// Channel for workers (for threads balancing)
+	// Buffered channel when len = len(proxies_list)
 	workersCh chan struct{}
+
+	// Protocols (ex: []string{"http", "socks5", "socks4a"} and etc)
 	protocols []string
-	results   [][]string
-	cfg       config.Proxy
+
+	// Results slices for cs
+	results [][]string
+
+	// Proxies config
+	cfg config.Proxy
 }
 
 func New(ctx context.Context, cfg config.Proxy, maxThreads int) *ProxiesStorage {
@@ -39,21 +50,15 @@ func New(ctx context.Context, cfg config.Proxy, maxThreads int) *ProxiesStorage 
 }
 
 func (p *ProxiesStorage) StartChecker(proxiesList []string) [][]string {
-	//p.wg.Add(len(proxiesList))
+	// Increment wait group
+	p.wg.Add(len(proxiesList))
 
 	start := time.Now().Local()
 
 	var successfullyCount atomic.Uint64
-	for ind, proxyAddress := range proxiesList {
-		if ind == 50 {
-			break
-		}
-
+	for _, proxyAddress := range proxiesList {
 		// Add worker in channel
 		p.workersCh <- struct{}{}
-
-		// Increment wait group
-		p.wg.Add(1)
 
 		// Start goroutine for check proxy
 		go func(proxyAddress string) {
@@ -76,7 +81,6 @@ func (p *ProxiesStorage) StartChecker(proxiesList []string) [][]string {
 					successfullyCount.Add(1)
 					records = append(records, record)
 				}
-
 			}
 
 			// Add record in result
@@ -87,10 +91,14 @@ func (p *ProxiesStorage) StartChecker(proxiesList []string) [][]string {
 			// Remove worker from channel
 			<-p.workersCh
 		}(proxyAddress)
+
+		time.Sleep(time.Millisecond * 100)
 	}
 
 	// Wait all checks
 	p.wg.Wait()
+
+	// Close workers channel
 	close(p.workersCh)
 
 	sub := time.Now().Local().Sub(start)
