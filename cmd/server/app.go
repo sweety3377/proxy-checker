@@ -40,8 +40,6 @@ func runApp(ctx context.Context, cfg *config.Config) {
 		logger.Fatal().Err(err).Str("mode", cfg.Proxy.InputType).Msg("error initializing proxy")
 	}
 
-	proxiesList = proxiesList[0:200]
-
 	logger.Info().Int("len", len(proxiesList)).Msg("successfully loaded proxies list")
 
 	proxyRepository := proxy_repository.New(ctx, cfg.Proxy, cfg.Runtime.MaxThreads)

@@ -5,8 +5,14 @@ import (
 	"github.com/sweety3377/proxy-checker/internal/config"
 	pkgLogger "github.com/sweety3377/proxy-checker/pkg/logger"
 	"log"
+	"os"
 	"runtime"
 )
+
+func init() {
+	os.Mkdir("data", os.ModePerm)
+	os.Mkdir("results", os.ModePerm)
+}
 
 func main() {
 	// Base context

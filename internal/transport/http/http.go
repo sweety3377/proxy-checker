@@ -3,8 +3,7 @@ package http
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/pkg/errors"
-	"golang.org/x/net/proxy"
+	"h12.io/socks"
 	"net/http"
 	"net/url"
 	"time"
@@ -22,16 +21,7 @@ func NewHttpClient(proxyURL *url.URL, timeout time.Duration) (*http.Client, erro
 
 	switch proxyURL.Scheme {
 	case "socks5":
-		dialer, err := proxy.SOCKS5("tcp", proxyURL.String(), nil, nil)
-		if err != nil {
-			return nil, errors.Wrap(err, "Error creating SOCKS5 proxy")
-		}
-
-		if contextDialer, ok := dialer.(proxy.ContextDialer); ok {
-			tr.DialContext = contextDialer.DialContext
-		} else {
-			return nil, errors.New("error dialing socks5 proxy")
-		}
+		tr.Dial = socks.Dial(proxyURL.String())
 	case "http":
 		tr.Proxy = http.ProxyURL(proxyURL)
 	default:

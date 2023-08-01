@@ -10,7 +10,6 @@ import (
 	httpTransport "github.com/sweety3377/proxy-checker/internal/transport/http"
 	"net/http"
 	"net/url"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -41,7 +40,7 @@ func New(ctx context.Context, cfg config.Proxy, maxThreads int) *ProxiesStorage 
 	return &ProxiesStorage{
 		workersCh: make(chan struct{}, maxThreads),
 		results:   make([][]string, 0),
-		protocols: []string{"http://", "socks5://"},
+		protocols: []string{"socks5"},
 		wg:        new(sync.WaitGroup),
 		mx:        new(sync.Mutex),
 		logger:    zerolog.Ctx(ctx),
@@ -120,7 +119,7 @@ func (p *ProxiesStorage) StartChecker(proxiesList []string) [][]string {
 
 func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress, scheme string) ([]string, error) {
 	// Parse proxy url
-	proxyURL, err := url.Parse(scheme + proxyAddress)
+	proxyURL, err := url.Parse(scheme + "://" + proxyAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +171,7 @@ func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress, scheme st
 
 	return []string{
 		proxyAddress,
-		strings.Trim(scheme, "://"),
+		scheme,
 		response.RegionName,
 		sub.String(),
 	}, nil
