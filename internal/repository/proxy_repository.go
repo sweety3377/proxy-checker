@@ -178,14 +178,14 @@ func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress, scheme st
 	p.logger.Info().
 		Str("address", proxyAddress).
 		Str("protocol", scheme).
-		Str("country", response.RegionName).
+		Str("country", response.CountryCode).
 		Dur("duration", sub).
 		Msg("proxy is active")
 
 	return []string{
 		proxyAddress,
 		scheme,
-		response.RegionName,
+		response.CountryCode,
 		sub.String(),
 	}, nil
 }

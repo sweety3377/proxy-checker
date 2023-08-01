@@ -5,5 +5,5 @@ type CheckedProxyResponse []struct {
 }
 
 type Response struct {
-	RegionName string `json:"regionName,omitempty"`
+	CountryCode string `json:"countryCode,omitempty"`
 }
