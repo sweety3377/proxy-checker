@@ -6,7 +6,6 @@ import (
 	pkgLogger "github.com/sweety3377/proxy-checker/pkg/logger"
 	"log"
 	"runtime"
-	"runtime/debug"
 )
 
 func main() {
@@ -30,10 +29,6 @@ func main() {
 	if cfg.Runtime.UseCPUs != 0 {
 		runtime.GOMAXPROCS(cfg.Runtime.UseCPUs)
 	}
-
-	// Set max threads for instance
-	// 5 = it's default threads number for instance working
-	debug.SetMaxThreads(5 + cfg.Runtime.MaxThreads)
 
 	// Run app
 	runApp(logger.WithContext(ctx), cfg)
