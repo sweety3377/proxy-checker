@@ -15,16 +15,18 @@ import (
 )
 
 type ProxiesStorage struct {
-	wg     *sync.WaitGroup
-	logger *zerolog.Logger
-	cfg    config.Proxy
+	wg        *sync.WaitGroup
+	workersCh chan struct{}
+	logger    *zerolog.Logger
+	cfg       config.Proxy
 }
 
-func New(ctx context.Context, cfg config.Proxy) *ProxiesStorage {
+func New(ctx context.Context, cfg config.Proxy, maxThreads int) *ProxiesStorage {
 	return &ProxiesStorage{
-		wg:     new(sync.WaitGroup),
-		logger: zerolog.Ctx(ctx),
-		cfg:    cfg,
+		wg:        new(sync.WaitGroup),
+		logger:    zerolog.Ctx(ctx),
+		workersCh: make(chan struct{}, maxThreads),
+		cfg:       cfg,
 	}
 }
 
@@ -35,6 +37,10 @@ func (p *ProxiesStorage) StartChecker(proxiesList []string) {
 
 	var successfullyCount atomic.Uint64
 	for _, proxyAddress := range proxiesList {
+		// Add worker in channel
+		p.workersCh <- struct{}{}
+
+		// Increment wait group
 		p.wg.Add(1)
 
 		// Start goroutine for check proxy
@@ -50,6 +56,9 @@ func (p *ProxiesStorage) StartChecker(proxiesList []string) {
 			} else {
 				successfullyCount.Add(1)
 			}
+
+			// Remove worker from channel
+			<-p.workersCh
 		}(proxyAddress)
 	}
 

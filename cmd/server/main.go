@@ -26,13 +26,14 @@ func main() {
 		Str("project", "proxy-checker").
 		Logger()
 
-	// Set useing cpus on instance
+	// Set max using cpus on instance
 	if cfg.Runtime.UseCPUs != 0 {
 		runtime.GOMAXPROCS(cfg.Runtime.UseCPUs)
 	}
 
 	// Set max threads for instance
-	debug.SetMaxThreads(cfg.Runtime.MaxThreads)
+	// 5 = it's default threads number for instance working
+	debug.SetMaxThreads(5 + cfg.Runtime.MaxThreads)
 
 	// Run app
 	runApp(logger.WithContext(ctx), cfg)

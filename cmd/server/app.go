@@ -38,7 +38,7 @@ func runApp(ctx context.Context, cfg *config.Config) {
 
 	logger.Info().Int("len", len(proxiesList)).Msg("successfully loaded proxies list")
 
-	proxyRepository := proxy_repository.New(ctx, cfg.Proxy)
+	proxyRepository := proxy_repository.New(ctx, cfg.Proxy, cfg.Runtime.MaxThreads)
 	proxyService := proxy_service.New(proxyRepository)
 
 	// Start check
