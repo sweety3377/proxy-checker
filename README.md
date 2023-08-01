@@ -1,1 +1,1 @@
-# proxy-checker
+# Proxy Checker
