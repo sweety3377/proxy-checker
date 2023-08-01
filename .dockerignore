@@ -2,3 +2,4 @@
 /logs
 /test_data
 .env
+/bin

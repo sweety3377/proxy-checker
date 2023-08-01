@@ -21,19 +21,19 @@ compile: install #include
 	@echo " > Proxy checker compiling started [Windows, Linux and MacOS]"
 
 	@echo " > Compiling for windows amd64"
-	@cd cmd/server && GOOS=windows GOARCH=amd64 go build -o cmd/server
+	@GOOS=windows GOARCH=amd64 go build -o ./bin/windows_amd64 ./cmd/server
 
 	@echo " > Compiling for windows arm64"
-	@cd cmd/server && GOOS=windows GOARCH=arm64 go build -o cmd/server
+	@GOOS=windows GOARCH=arm64 go build -o ./bin/windows_arm64 ./cmd/server
 
 	@echo " > Compiling for linux amd64"
-	@cd cmd/server && GOOS=linux GOARCH=amd64 go build -o cmd/server
+	@GOOS=linux GOARCH=amd64 go build -o ./bin/linux_amd64 ./cmd/server
 
 	@echo " > Compiling for linux arm64"
-	@cd cmd/server && GOOS=linux GOARCH=arm64 go build -o cmd/server
+	@GOOS=linux GOARCH=arm64 go build -o ./bin/linux_arm64 ./cmd/server
 
 	@echo " > Compiling for macos amd64"
-	@cd cmd/server && GOOS=darwin GOARCH=amd64 go build -o cmd/server
+	@GOOS=darwin GOARCH=amd64 go build -o ./bin/macos_amd64 ./cmd/server
 
 	@echo " > Compiling for macos arm64"
-	@cd cmd/server && GOOS=darwin GOARCH=arm64 go build -o cmd/server
+	@GOOS=darwin GOARCH=arm64 go build -o ./bin/macos_arm64 ./cmd/server
