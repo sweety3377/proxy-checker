@@ -45,13 +45,16 @@ func runApp(ctx context.Context, cfg *config.Config) {
 	proxyRepository := proxy_repository.New(ctx, cfg.Proxy, cfg.Runtime.MaxThreads)
 	proxyService := proxy_service.New(proxyRepository)
 
+	doneCh := make(chan struct{}, 1)
+	defer close(doneCh)
+
 	// Start check
 	go func() {
 		results := proxyService.StartChecker(proxiesList)
 
 		timestamp := strconv.Itoa(int(time.Now().Unix()))
 
-		fileName := filepath.Join("results", "results"+timestamp+".csv")
+		fileName := filepath.Join("results", "results-"+timestamp+".csv")
 		file, err := os.OpenFile(fileName, os.O_CREATE|os.O_RDWR, os.ModePerm)
 		if err != nil {
 			logger.Error().Err(err).Msg("error creating file for results")
@@ -63,9 +66,18 @@ func runApp(ctx context.Context, cfg *config.Config) {
 		if err != nil {
 			logger.Error().Err(err).Msg("error saving results in csv file")
 		}
+
+		doneCh <- struct{}{}
 	}()
 
-	// Wait shutdown signal
-	sig := <-shutdownCh
-	logger.Info().Str("signal", sig.String()).Msg("shutdown signal receive")
+	for {
+		select {
+		case <-doneCh:
+			logger.Info().Msg("received message from dont channel")
+			shutdownCh <- os.Kill
+		case sig := <-shutdownCh:
+			logger.Info().Str("signal", sig.String()).Msg("received shutdown signal")
+			return
+		}
+	}
 }

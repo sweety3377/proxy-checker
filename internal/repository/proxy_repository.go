@@ -3,12 +3,14 @@ package proxy_repository
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/rs/zerolog"
 	"github.com/sweety3377/proxy-checker/internal/config"
 	"github.com/sweety3377/proxy-checker/internal/model"
 	httpTransport "github.com/sweety3377/proxy-checker/internal/transport/http"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -19,6 +21,7 @@ type ProxiesStorage struct {
 	mx        *sync.Mutex
 	logger    *zerolog.Logger
 	workersCh chan struct{}
+	protocols []string
 	results   [][]string
 	cfg       config.Proxy
 }
@@ -27,6 +30,7 @@ func New(ctx context.Context, cfg config.Proxy, maxThreads int) *ProxiesStorage 
 	return &ProxiesStorage{
 		workersCh: make(chan struct{}, maxThreads),
 		results:   make([][]string, 0),
+		protocols: []string{"http://", "socks5://"},
 		wg:        new(sync.WaitGroup),
 		mx:        new(sync.Mutex),
 		logger:    zerolog.Ctx(ctx),
@@ -35,12 +39,16 @@ func New(ctx context.Context, cfg config.Proxy, maxThreads int) *ProxiesStorage 
 }
 
 func (p *ProxiesStorage) StartChecker(proxiesList []string) [][]string {
-	p.wg.Add(len(proxiesList))
+	//p.wg.Add(len(proxiesList))
 
 	start := time.Now().Local()
 
 	var successfullyCount atomic.Uint64
-	for _, proxyAddress := range proxiesList {
+	for ind, proxyAddress := range proxiesList {
+		if ind == 50 {
+			break
+		}
+
 		// Add worker in channel
 		p.workersCh <- struct{}{}
 
@@ -54,16 +62,26 @@ func (p *ProxiesStorage) StartChecker(proxiesList []string) [][]string {
 			ctx, cancel := context.WithTimeout(context.Background(), p.cfg.Timeout)
 			defer cancel()
 
-			record, err := p.checkProxy(ctx, proxyAddress)
-			if err != nil {
-				p.logger.Info().Str("proxy", proxyAddress).Msg("proxy is not active")
-			} else {
-				successfullyCount.Add(1)
+			records := make([][]string, 0, 2)
+
+			var (
+				record []string
+				err    error
+			)
+			for _, protocol := range p.protocols {
+				record, err = p.checkProxy(ctx, proxyAddress, protocol)
+				if err != nil {
+					p.logger.Info().Str("proxy", proxyAddress).Msg("proxy is not active")
+				} else {
+					successfullyCount.Add(1)
+					records = append(records, record)
+				}
+
 			}
 
 			// Add record in result
 			p.mx.Lock()
-			p.results = append(p.results, record)
+			p.results = append(p.results, records...)
 			p.mx.Unlock()
 
 			// Remove worker from channel
@@ -73,6 +91,7 @@ func (p *ProxiesStorage) StartChecker(proxiesList []string) [][]string {
 
 	// Wait all checks
 	p.wg.Wait()
+	close(p.workersCh)
 
 	sub := time.Now().Local().Sub(start)
 
@@ -91,9 +110,9 @@ func (p *ProxiesStorage) StartChecker(proxiesList []string) [][]string {
 	return p.results
 }
 
-func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress string) ([]string, error) {
+func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress, scheme string) ([]string, error) {
 	// Parse proxy url
-	proxyURL, err := url.Parse(proxyAddress)
+	proxyURL, err := url.Parse(scheme + proxyAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -124,6 +143,11 @@ func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress string) ([
 
 	defer resp.Body.Close()
 
+	// Check on 200 status ok
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("response status code is wrong: %v", resp.StatusCode)
+	}
+
 	// Get proxy data
 	var response model.Response
 	err = json.NewDecoder(resp.Body).Decode(&response)
@@ -133,10 +157,15 @@ func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress string) ([
 
 	p.logger.Info().
 		Str("address", proxyAddress).
-		Str("protocol", proxyURL.Scheme).
+		Str("protocol", scheme).
 		Str("country", response.RegionName).
 		Dur("duration", sub).
 		Msg("proxy is active")
 
-	return nil, err
+	return []string{
+		proxyAddress,
+		strings.Trim(scheme, "://"),
+		response.RegionName,
+		sub.String(),
+	}, nil
 }
