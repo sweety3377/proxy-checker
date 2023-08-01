@@ -15,9 +15,17 @@ import (
 	"time"
 )
 
-type ProxiesStorage struct {
-	wg *sync.WaitGroup
+type ProxiesResults struct {
+	// Results slices for csv
+	data [][]string
+
+	// Locker for structure
 	mx *sync.Mutex
+}
+
+type ProxiesStorage struct {
+	// WaitGroup, it's counter for goroutines
+	wg *sync.WaitGroup
 
 	// Console logger
 	logger *zerolog.Logger
@@ -29,8 +37,8 @@ type ProxiesStorage struct {
 	// Protocols (ex: []string{"http", "socks5", "socks4a"} and etc)
 	protocols []string
 
-	// Results slices for cs
-	results [][]string
+	// Checks results
+	results ProxiesResults
 
 	// Proxies config
 	cfg config.Proxy
@@ -38,11 +46,16 @@ type ProxiesStorage struct {
 
 func New(ctx context.Context, cfg config.Proxy, maxThreads int) *ProxiesStorage {
 	return &ProxiesStorage{
+		results: ProxiesResults{
+			data: make([][]string, 0),
+			mx:   new(sync.Mutex),
+		},
+		protocols: []string{
+			"http",
+			"socks5",
+		},
 		workersCh: make(chan struct{}, maxThreads),
-		results:   make([][]string, 0),
-		protocols: []string{"socks5"},
 		wg:        new(sync.WaitGroup),
-		mx:        new(sync.Mutex),
 		logger:    zerolog.Ctx(ctx),
 		cfg:       cfg,
 	}
@@ -83,15 +96,15 @@ func (p *ProxiesStorage) StartChecker(proxiesList []string) [][]string {
 			}
 
 			// Add record in result
-			p.mx.Lock()
-			p.results = append(p.results, records...)
-			p.mx.Unlock()
+			p.results.mx.Lock()
+			p.results.data = append(p.results.data, records...)
+			p.results.mx.Unlock()
 
 			// Remove worker from channel
 			<-p.workersCh
 		}(proxyAddress)
 
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(time.Millisecond * 50)
 	}
 
 	// Wait all checks
@@ -114,7 +127,7 @@ func (p *ProxiesStorage) StartChecker(proxiesList []string) [][]string {
 		Uint64("unsuccessfully", unsuccessfullyCountUint).
 		Msg("successfully checked selected proxies")
 
-	return p.results
+	return p.results.data
 }
 
 func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress, scheme string) ([]string, error) {
