@@ -16,21 +16,25 @@ import (
 
 type ProxiesStorage struct {
 	wg        *sync.WaitGroup
-	workersCh chan struct{}
+	mx        *sync.Mutex
 	logger    *zerolog.Logger
+	workersCh chan struct{}
+	results   [][]string
 	cfg       config.Proxy
 }
 
 func New(ctx context.Context, cfg config.Proxy, maxThreads int) *ProxiesStorage {
 	return &ProxiesStorage{
-		wg:        new(sync.WaitGroup),
-		logger:    zerolog.Ctx(ctx),
 		workersCh: make(chan struct{}, maxThreads),
+		results:   make([][]string, 0),
+		wg:        new(sync.WaitGroup),
+		mx:        new(sync.Mutex),
+		logger:    zerolog.Ctx(ctx),
 		cfg:       cfg,
 	}
 }
 
-func (p *ProxiesStorage) StartChecker(proxiesList []string) {
+func (p *ProxiesStorage) StartChecker(proxiesList []string) [][]string {
 	p.wg.Add(len(proxiesList))
 
 	start := time.Now().Local()
@@ -50,12 +54,17 @@ func (p *ProxiesStorage) StartChecker(proxiesList []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), p.cfg.Timeout)
 			defer cancel()
 
-			err := p.checkProxy(ctx, proxyAddress)
+			record, err := p.checkProxy(ctx, proxyAddress)
 			if err != nil {
 				p.logger.Info().Str("proxy", proxyAddress).Msg("proxy is not active")
 			} else {
 				successfullyCount.Add(1)
 			}
+
+			// Add record in result
+			p.mx.Lock()
+			p.results = append(p.results, record)
+			p.mx.Unlock()
 
 			// Remove worker from channel
 			<-p.workersCh
@@ -78,19 +87,21 @@ func (p *ProxiesStorage) StartChecker(proxiesList []string) {
 		Uint64("successfully", successfullyCountUint).
 		Uint64("unsuccessfully", unsuccessfullyCountUint).
 		Msg("successfully checked selected proxies")
+
+	return p.results
 }
 
-func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress string) error {
+func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress string) ([]string, error) {
 	// Parse proxy url
 	proxyURL, err := url.Parse(proxyAddress)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	// Get http client with transport on selected proxy url
 	httpClient, err := httpTransport.NewHttpClient(proxyURL, p.cfg.Timeout)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Create request
@@ -106,7 +117,7 @@ func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress string) er
 	// Do request
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	sub := time.Now().Local().Sub(start)
@@ -117,7 +128,7 @@ func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress string) er
 	var response model.Response
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	p.logger.Info().
@@ -127,5 +138,5 @@ func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress string) er
 		Dur("duration", sub).
 		Msg("proxy is active")
 
-	return nil
+	return nil, err
 }
