@@ -31,6 +31,8 @@ func New(ctx context.Context, cfg config.Proxy) *ProxiesStorage {
 func (p *ProxiesStorage) StartChecker(proxiesList []string) {
 	p.wg.Add(len(proxiesList))
 
+	start := time.Now().Local()
+
 	var successfullyCount atomic.Uint64
 	for _, proxyAddress := range proxiesList {
 		p.wg.Add(1)
@@ -54,6 +56,8 @@ func (p *ProxiesStorage) StartChecker(proxiesList []string) {
 	// Wait all checks
 	p.wg.Wait()
 
+	sub := time.Now().Local().Sub(start)
+
 	// Get successfully count
 	successfullyCountUint := successfullyCount.Load()
 
@@ -61,6 +65,7 @@ func (p *ProxiesStorage) StartChecker(proxiesList []string) {
 	unsuccessfullyCountUint := uint64(len(proxiesList)) - successfullyCountUint
 
 	p.logger.Info().
+		Dur("dur", sub).
 		Uint64("successfully", successfullyCountUint).
 		Uint64("unsuccessfully", unsuccessfullyCountUint).
 		Msg("successfully checked selected proxies")
