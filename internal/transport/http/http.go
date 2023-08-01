@@ -9,7 +9,9 @@ import (
 	"time"
 )
 
+// Create http client for proxy
 func NewHttpClient(proxyURL *url.URL, timeout time.Duration) (*http.Client, error) {
+	// Create transport
 	tr := &http.Transport{
 		DisableKeepAlives: true,
 		TLSClientConfig: &tls.Config{
@@ -26,6 +28,7 @@ func NewHttpClient(proxyURL *url.URL, timeout time.Duration) (*http.Client, erro
 		return nil, fmt.Errorf("undefined scheme: %s", proxyURL.Scheme)
 	}
 
+	// Http client will be without redirects
 	return &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse

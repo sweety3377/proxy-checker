@@ -1,5 +1,6 @@
 package proxy_service
 
+// Implementation of repository
 type Repository interface {
 	StartChecker(proxiesList []string)
 }

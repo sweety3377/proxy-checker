@@ -18,14 +18,17 @@ func runApp(ctx context.Context, cfg *config.Config) {
 
 	logger := zerolog.Ctx(ctx)
 
+	// Get proxies list be loaded depending on which file_input
 	var (
 		proxiesList []string
 		err         error
 	)
 
 	switch cfg.InputType {
+	// Get proxies from url
 	case "URL":
 		proxiesList, err = initProxyListFromURL(ctx, cfg.Proxy)
+	// Get proxies from file
 	case "FILE":
 		proxiesList, err = initProxyListFromFile(ctx, cfg.Proxy)
 	}
@@ -41,6 +44,7 @@ func runApp(ctx context.Context, cfg *config.Config) {
 	// Start check
 	go proxyService.StartChecker(proxiesList)
 
+	// Wait shutdown signal
 	sig := <-shutdownCh
 	logger.Info().Str("signal", sig.String()).Msg("shutdown signal receive")
 }

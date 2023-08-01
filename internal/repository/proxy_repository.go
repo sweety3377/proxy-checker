@@ -35,6 +35,7 @@ func (p *ProxiesStorage) StartChecker(proxiesList []string) {
 	for _, proxyAddress := range proxiesList {
 		p.wg.Add(1)
 
+		// Start goroutine for check proxy
 		go func(proxyAddress string) {
 			defer p.wg.Done()
 
@@ -50,9 +51,13 @@ func (p *ProxiesStorage) StartChecker(proxiesList []string) {
 		}(proxyAddress)
 	}
 
+	// Wait all checks
 	p.wg.Wait()
 
+	// Get successfully count
 	successfullyCountUint := successfullyCount.Load()
+
+	// Get unsuccessfully count
 	unsuccessfullyCountUint := uint64(len(proxiesList)) - successfullyCountUint
 
 	p.logger.Info().
@@ -62,16 +67,19 @@ func (p *ProxiesStorage) StartChecker(proxiesList []string) {
 }
 
 func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress string) error {
-	proxyURL, err := url.Parse("http://" + proxyAddress)
+	// Parse proxy url
+	proxyURL, err := url.Parse(proxyAddress)
 	if err != nil {
 		return nil
 	}
 
+	// Get http client with transport on selected proxy url
 	httpClient, err := httpTransport.NewHttpClient(proxyURL, p.cfg.Timeout)
 	if err != nil {
 		return err
 	}
 
+	// Create request
 	req, _ := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
@@ -81,6 +89,7 @@ func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress string) er
 
 	start := time.Now().Local()
 
+	// Do request
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return err
@@ -90,6 +99,7 @@ func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress string) er
 
 	defer resp.Body.Close()
 
+	// Get proxy data
 	var response model.Response
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	if err != nil {

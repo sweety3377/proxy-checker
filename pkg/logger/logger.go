@@ -1,11 +1,12 @@
 package logger
 
 import (
-	"encoding/json"
+	"github.com/goccy/go-json"
 	"github.com/rs/zerolog"
 	"os"
 )
 
+// New logger
 func New() *zerolog.Logger {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMicro
 	zerolog.TimestampFieldName = "time"
