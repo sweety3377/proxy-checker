@@ -18,9 +18,19 @@ func runApp(ctx context.Context, cfg *config.Config) {
 
 	logger := zerolog.Ctx(ctx)
 
-	proxiesList, err := initProxyList(ctx, cfg.Proxy)
+	var (
+		proxiesList []string
+		err         error
+	)
+
+	switch cfg.InputType {
+	case "URL":
+		proxiesList, err = initProxyListFromURL(ctx, cfg.Proxy)
+	case "FILE":
+		proxiesList, err = initProxyListFromFile(ctx, cfg.Proxy)
+	}
 	if err != nil {
-		logger.Fatal().Err(err).Msg("error initializing proxies list")
+		logger.Fatal().Err(err).Str("mode", cfg.Proxy.InputType).Msg("error initializing proxy")
 	}
 
 	logger.Info().Int("len", len(proxiesList)).Msg("successfully loaded proxies list")

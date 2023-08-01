@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"github.com/rs/zerolog"
 	"github.com/sweety3377/proxy-checker/internal/config"
+	"github.com/sweety3377/proxy-checker/internal/model"
 	httpTransport "github.com/sweety3377/proxy-checker/internal/transport/http"
-	"github.com/sweety3377/proxy-checker/pkg/model"
 	"net/http"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -28,31 +29,46 @@ func New(ctx context.Context, cfg config.Proxy) *ProxiesStorage {
 }
 
 func (p *ProxiesStorage) StartChecker(proxiesList []string) {
-	wg := &sync.WaitGroup{}
-	wg.Add(len(proxiesList))
+	//	p.wg.Add(len(proxiesList))
 
-	for _, proxyAddress := range proxiesList {
+	var successfullyCount atomic.Uint64
+	for ind, proxyAddress := range proxiesList {
+		if ind == 10 {
+			break
+		}
+
+		p.wg.Add(1)
+
 		go func(proxyAddress string) {
-			defer wg.Done()
+			defer p.wg.Done()
 
 			ctx, cancel := context.WithTimeout(context.Background(), p.cfg.Timeout)
 			defer cancel()
 
 			err := p.checkProxy(ctx, proxyAddress)
 			if err != nil {
-				p.logger.Error().Str("proxy", proxyAddress).Err(err).Msg("error checking proxy")
+				p.logger.Info().Str("proxy", proxyAddress).Msg("proxy is not active")
+			} else {
+				successfullyCount.Add(1)
 			}
-
 		}(proxyAddress)
+
+		time.Sleep(time.Millisecond * 10)
 	}
 
 	p.wg.Wait()
 
-	p.logger.Info().Int("len", len(proxiesList)).Msg("successfully checked selected proxies")
+	successfullyCountUint := successfullyCount.Load()
+	unsuccessfullyCountUint := uint64(len(proxiesList)) - successfullyCountUint
+
+	p.logger.Info().
+		Uint64("successfully", successfullyCountUint).
+		Uint64("unsuccessfully", unsuccessfullyCountUint).
+		Msg("successfully checked selected proxies")
 }
 
 func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress string) error {
-	proxyURL, err := url.Parse(proxyAddress)
+	proxyURL, err := url.Parse("http://" + proxyAddress)
 	if err != nil {
 		return nil
 	}
@@ -62,8 +78,12 @@ func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress string) er
 		return err
 	}
 
-	requestURL := "http://ip-api.com/json/?fields=61439"
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
+	req, _ := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		"http://ip-api.com/json/?fields=61439",
+		nil,
+	)
 
 	start := time.Now().Local()
 
@@ -72,7 +92,7 @@ func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress string) er
 		return err
 	}
 
-	sub := start.Sub(time.Now().Local())
+	sub := time.Now().Local().Sub(start)
 
 	defer resp.Body.Close()
 
@@ -87,7 +107,7 @@ func (p *ProxiesStorage) checkProxy(ctx context.Context, proxyAddress string) er
 		Str("protocol", proxyURL.Scheme).
 		Str("country", response.RegionName).
 		Dur("duration", sub).
-		Msg("[-] Proxy is active")
+		Msg("proxy is active")
 
 	return nil
 }
