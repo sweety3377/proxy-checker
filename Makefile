@@ -7,8 +7,8 @@ help:
 .PHONY: install
 install: #include
 	@echo " > Downloading go dependencies"
-	@GOPRIVATE=* GOINSECURE=* go mod download
-	@GOPRIVATE=* GOINSECURE=* go mod tidy
+	@go mod download
+	@go mod tidy
 	@echo " > All dependencies successfully installed"
 
 .PHONY: run
