@@ -1,7 +1,7 @@
 include .env
 
 help:
-	@fgrep -h "#include" $(MAKEFILE_LIST) | fgrep -v fgrep | sed -e 's/\\$$//' | sed -e 's/##//'
+	fgrep -h "#include" $(MAKEFILE_LIST) | fgrep -v fgrep | sed -e 's/\\$$//' | sed -e 's/##//'
 
 install: #include
 	echo " > Downloading go dependencies"
