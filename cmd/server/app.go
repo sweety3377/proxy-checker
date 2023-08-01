@@ -2,13 +2,17 @@ package main
 
 import (
 	"context"
+	"encoding/csv"
 	"github.com/rs/zerolog"
 	"github.com/sweety3377/proxy-checker/internal/config"
 	proxy_repository "github.com/sweety3377/proxy-checker/internal/repository"
 	proxy_service "github.com/sweety3377/proxy-checker/internal/service"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strconv"
 	"syscall"
+	"time"
 )
 
 func runApp(ctx context.Context, cfg *config.Config) {
@@ -42,7 +46,24 @@ func runApp(ctx context.Context, cfg *config.Config) {
 	proxyService := proxy_service.New(proxyRepository)
 
 	// Start check
-	go proxyService.StartChecker(proxiesList)
+	go func() {
+		results := proxyService.StartChecker(proxiesList)
+
+		timestamp := strconv.Itoa(int(time.Now().Unix()))
+
+		fileName := filepath.Join("results", "results"+timestamp+".csv")
+		file, err := os.OpenFile(fileName, os.O_CREATE|os.O_RDWR, os.ModePerm)
+		if err != nil {
+			logger.Error().Err(err).Msg("error creating file for results")
+		}
+
+		w := csv.NewWriter(file)
+
+		err = w.WriteAll(results)
+		if err != nil {
+			logger.Error().Err(err).Msg("error saving results in csv file")
+		}
+	}()
 
 	// Wait shutdown signal
 	sig := <-shutdownCh
